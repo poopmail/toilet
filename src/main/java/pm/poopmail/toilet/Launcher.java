@@ -8,6 +8,7 @@ import java.util.Arrays;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.subethamail.smtp.server.SMTPServer;
+import pm.poopmail.toilet.debug.DebugRedisPubSubAsyncCommands;
 
 /**
  * Application launcher
@@ -16,7 +17,10 @@ import org.subethamail.smtp.server.SMTPServer;
  */
 public class Launcher {
 
-    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+    private static final Gson GSON = new GsonBuilder()
+            .setPrettyPrinting()
+            .disableHtmlEscaping()
+            .create();
 
     public static void main(final String[] args) {
         // Retrieve configuration
@@ -26,10 +30,16 @@ public class Launcher {
         final String redisKey = System.getenv("TOILET_REDIS_KEY");
         final Set<String> allowedDomains = Arrays.stream(System.getenv("TOILET_FILTER").split(","))
                 .collect(Collectors.toSet());
+        final boolean debug = System.getenv("TOILET_DEBUG") != null;
 
         // Initialize redis
-        final RedisClient redisClient = RedisClient.create(redisUri);
-        final RedisPubSubAsyncCommands<String, String> redisPubSub = redisClient.connectPubSub().async();
+        final RedisPubSubAsyncCommands<String, String> redisPubSub;
+        if (debug) {
+            redisPubSub = new DebugRedisPubSubAsyncCommands();
+        } else {
+            final RedisClient redisClient = RedisClient.create(redisUri);
+            redisPubSub = redisClient.connectPubSub().async();
+        }
 
         // Initialize mail server
         final SMTPServer server = new SMTPServer.Builder()
