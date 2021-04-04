@@ -48,7 +48,7 @@ public class PoopmailMessageHandler implements BasicMessageListener {
                     .filter(s -> this.allowedDomains.contains(this.parseDomain(s)))
                     .collect(Collectors.toSet());
             if (receivers.isEmpty()) {
-                return;
+                throw new RejectException("Invalid receiver domain(s)");
             }
 
             // Get bytes of json string
