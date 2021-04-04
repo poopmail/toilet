@@ -8,6 +8,8 @@ import jakarta.mail.Address;
 import jakarta.mail.Session;
 import jakarta.mail.internet.MimeMessage;
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.Set;
@@ -15,6 +17,7 @@ import java.util.stream.Collectors;
 import org.subethamail.smtp.MessageContext;
 import org.subethamail.smtp.RejectException;
 import org.subethamail.smtp.helper.BasicMessageListener;
+import pm.poopmail.toilet.karen.KarenDriver;
 
 /**
  * Handler for incoming emails
@@ -25,15 +28,18 @@ public class PoopmailMessageHandler implements BasicMessageListener {
     private final RedisSetCommands<String, String> redis;
     private final Gson gson;
     private final String redisKey;
+    private final KarenDriver karenDriver;
 
     public PoopmailMessageHandler(final RedisPubSubAsyncCommands<String, String> redisPubSub,
                                   final RedisSetCommands<String, String> redis,
                                   final Gson gson,
-                                  final String redisKey) {
+                                  final String redisKey,
+                                  final KarenDriver karenDriver) {
         this.redisPubSub = redisPubSub;
         this.redis = redis;
         this.gson = gson;
         this.redisKey = redisKey;
+        this.karenDriver = karenDriver;
     }
 
     @Override
@@ -58,10 +64,23 @@ public class PoopmailMessageHandler implements BasicMessageListener {
             // Publish email through Redis
             this.redisPubSub.publish(this.redisKey, Base64.getEncoder().encodeToString(jsonBytes));
         } catch (final Exception e) {
-            // Reject email
-            e.printStackTrace();
-            throw new RejectException("Internal server error: " + e.getClass().getSimpleName() + ": " + e.getMessage());
+            if (!(e instanceof RejectException)) {
+                // Reject email
+                e.printStackTrace();
+                this.karenDriver.error("Exception while parsing email", this.getStacktrace(e));
+                throw new RejectException("Internal server error: " + e.getClass().getSimpleName() + ": " + e.getMessage());
+            } else {
+                throw (RejectException) e;
+            }
         }
+    }
+
+    private String getStacktrace(final Exception e) {
+        final ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        final PrintStream printStream = new PrintStream(outputStream);
+        e.printStackTrace(printStream);
+        printStream.close();
+        return outputStream.toString();
     }
 
     /**
