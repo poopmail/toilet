@@ -2,6 +2,7 @@ package pm.poopmail.toilet;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
+import io.lettuce.core.api.sync.RedisSetCommands;
 import io.lettuce.core.pubsub.api.async.RedisPubSubAsyncCommands;
 import jakarta.mail.Address;
 import jakarta.mail.Session;
@@ -21,16 +22,16 @@ import org.subethamail.smtp.helper.BasicMessageListener;
 public class PoopmailMessageHandler implements BasicMessageListener {
 
     private final RedisPubSubAsyncCommands<String, String> redisPubSub;
-    private final Set<String> allowedDomains;
+    private final RedisSetCommands<String, String> redis;
     private final Gson gson;
     private final String redisKey;
 
     public PoopmailMessageHandler(final RedisPubSubAsyncCommands<String, String> redisPubSub,
-                                  final Set<String> allowedDomains,
+                                  final RedisSetCommands<String, String> redis,
                                   final Gson gson,
                                   final String redisKey) {
         this.redisPubSub = redisPubSub;
-        this.allowedDomains = allowedDomains;
+        this.redis = redis;
         this.gson = gson;
         this.redisKey = redisKey;
     }
@@ -45,7 +46,7 @@ public class PoopmailMessageHandler implements BasicMessageListener {
             // Parse and check receivers
             final Set<String> receivers = message.getTo().stream()
                     .map(Address::toString)
-                    .filter(s -> this.allowedDomains.contains(this.parseDomain(s)))
+                    .filter(s -> this.redis.sismember("__domains", this.parseDomain(s)))
                     .collect(Collectors.toSet());
             if (receivers.isEmpty()) {
                 throw new RejectException("Invalid receiver domain(s)");
