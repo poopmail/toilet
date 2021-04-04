@@ -3,6 +3,7 @@ package pm.poopmail.toilet;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import io.lettuce.core.RedisClient;
+import io.lettuce.core.api.StatefulRedisConnection;
 import io.lettuce.core.api.sync.RedisSetCommands;
 import io.lettuce.core.pubsub.api.async.RedisPubSubAsyncCommands;
 import org.subethamail.smtp.server.SMTPServer;
@@ -32,13 +33,16 @@ public class Launcher {
         // Initialize redis
         final RedisPubSubAsyncCommands<String, String> redisPubSub;
         final RedisSetCommands<String, String> redis;
+        final StatefulRedisConnection<String, String> redisCon;
         if (debug) {
             redisPubSub = new DebugRedisPubSubAsyncCommands();
             redis = new DebugRedisCommands();
+            redisCon = null;
         } else {
             final RedisClient redisClient = RedisClient.create(redisUri);
             redisPubSub = redisClient.connectPubSub().async();
-            redis = redisClient.connect().sync();
+            redisCon = redisClient.connect();
+            redis = redisCon.sync();
         }
 
         // Initialize mail server
@@ -48,6 +52,14 @@ public class Launcher {
                 .messageHandler(new PoopmailMessageHandler(redisPubSub, redis, GSON, redisKey))
                 .build();
         server.start();
+
+        // Cleanup
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            server.stop();
+            if (redisCon != null) {
+                redisCon.close();
+            }
+        }));
     }
 
 }
