@@ -52,7 +52,9 @@ public class PoopmailMessageHandler implements BasicMessageListener {
             // Publish email through Redis
             this.redisPubSub.publish(this.redisKey, this.gson.toJson(this.toJson(message, receivers)));
         } catch (final Exception e) {
+            // Reject email
             e.printStackTrace();
+            throw new RejectException("Internal server error: " + e.getClass().getSimpleName() + ": " + e.getMessage());
         }
     }
 
