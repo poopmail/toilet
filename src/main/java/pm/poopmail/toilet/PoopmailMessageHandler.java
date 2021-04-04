@@ -7,6 +7,8 @@ import jakarta.mail.Address;
 import jakarta.mail.Session;
 import jakarta.mail.internet.MimeMessage;
 import java.io.ByteArrayInputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.subethamail.smtp.MessageContext;
@@ -49,8 +51,11 @@ public class PoopmailMessageHandler implements BasicMessageListener {
                 return;
             }
 
+            // Get bytes of json string
+            final byte[] jsonBytes = this.gson.toJson(this.toJson(message, receivers)).getBytes(StandardCharsets.UTF_8);
+
             // Publish email through Redis
-            this.redisPubSub.publish(this.redisKey, this.gson.toJson(this.toJson(message, receivers)));
+            this.redisPubSub.publish(this.redisKey, Base64.getEncoder().encodeToString(jsonBytes));
         } catch (final Exception e) {
             // Reject email
             e.printStackTrace();
