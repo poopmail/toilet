@@ -59,9 +59,17 @@ public class Launcher {
                 .build();
         server.start();
 
+        // Tell karen that we are online
+        if (!debug) {
+            karenDriver.info("Startup", "The service is now running.");
+        }
+
         // Cleanup
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             server.stop();
+            if (!debug) {
+                karenDriver.info("Shutdown", "The service has shut down.");
+            }
             if (redisCon != null) {
                 redisCon.close();
             }
