@@ -11,7 +11,9 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.subethamail.smtp.MessageContext;
@@ -50,15 +52,14 @@ public class PoopmailMessageHandler implements BasicMessageListener {
             final MimeMessageParser message = new MimeMessageParser(mimeMessage).parse();
 
             // Parse and check receivers
-            final Set<String> receivers = message.getTo().stream()
+            final List<String> toList = message.getTo().stream()
                     .map(Address::toString)
+                    .collect(Collectors.toCollection(ArrayList::new));
+            toList.add(to);
+            final Set<String> receivers = toList.stream()
                     .filter(s -> this.redis.sismember("__domains", this.parseDomain(s)))
                     .collect(Collectors.toSet());
             if (receivers.isEmpty()) {
-                this.karenDriver.debug("Invalid domain", message.getTo().stream()
-                        .map(Address::toString)
-                        .map(s -> s + " ->" + this.parseDomain(s))
-                        .collect(Collectors.joining(", ")) + "\n" + to + " -> " + this.parseDomain(to));
                 throw new RejectException("Invalid receiver domain(s)");
             }
 
@@ -129,7 +130,7 @@ public class PoopmailMessageHandler implements BasicMessageListener {
      * @return The parsed domain
      */
     private String parseDomain(final String s) {
-        return s.contains("@") ? s.split("@")[1] : s;
+        return s.contains("@") ? s.split("@")[1].replaceAll("[<>#:]+", "") : s;
     }
 
 }
