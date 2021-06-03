@@ -55,6 +55,10 @@ public class PoopmailMessageHandler implements BasicMessageListener {
                     .filter(s -> this.redis.sismember("__domains", this.parseDomain(s)))
                     .collect(Collectors.toSet());
             if (receivers.isEmpty()) {
+                this.karenDriver.debug("Invalid domain", message.getTo().stream()
+                        .map(Address::toString)
+                        .map(s -> s + " ->" + this.parseDomain(s))
+                        .collect(Collectors.joining(", ")) + "\n" + to + " -> " + this.parseDomain(to));
                 throw new RejectException("Invalid receiver domain(s)");
             }
 
